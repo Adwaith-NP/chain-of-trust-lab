@@ -16,7 +16,7 @@ with its own folder, Dockerfile and web portal:
 | `social` | `social/`  | https://social.lab, https://seedpkilab2020.com | the same (Mac ports 80, 443) | 172.28.0.20 | 4433: SEED Task 3 `s_server` |
 | `alice`  | `alice/`   | —                  | http://localhost:5003    | 172.28.0.100  | —           |
 | `adwaith`| `adwaith/` | —                  | http://localhost:5004    | 172.28.0.101  | —           |
-| `attacker`| `attacker/`| fake social.lab (self-signed) | https://localhost:8443 | 172.28.0.66 | 8081: http redirect — MITM demo, see `attacker/README.md` |
+| `attacker`| `attacker/`| fake social.lab (self-signed, or forged w/ stolen CA key) | https://localhost:8443 | 172.28.0.66 | 8081: http redirect — MITM demo, see `attacker/README.md` |
 
 Every web login is `admin` / `admin123`. All instances share the `labnet`
 network (172.28.0.0/24) with the fixed IPs above, so they reach each other

@@ -24,6 +24,9 @@ echo "   ./attacker/spoof.sh on     (adds '172.28.0.66 social.lab' to alice)"
 echo " To stop the attack, remove that line again:"
 echo "   ./attacker/spoof.sh off"
 echo
+echo " Certificate: ./attacker/mode.sh warn    self-signed  -> browser warns"
+echo "              ./attacker/mode.sh trusted  forged (stolen CA key) -> no warning"
+echo
 echo " Captured logins (waiting - Ctrl-C to stop watching):"
 echo "----------------------------------------------------------------------"
 touch harvested.log

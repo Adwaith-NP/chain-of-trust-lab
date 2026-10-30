@@ -30,8 +30,23 @@ demo accounts (`alice` / `alice123`, …).
 | `apache/start.sh` | container start-up (cert → app → Apache → tail logs) |
 | `attack.sh` | operator console: shows status, tails captured logins |
 | `spoof.sh` | host switch: poison Alice's `/etc/hosts` so `social.lab` points at the attacker, or undo it |
+| `forge_cert.sh` | option 2: steal the CA root key from the `ca` instance and sign a `social.lab` cert with it |
+| `mode.sh` | pick which cert the fake site serves: `warn` (self-signed) or `trusted` (forged CA-signed) |
 
-## Running the demo
+## Two options
+
+The attacker serves the same fake login page both times; only the certificate
+it presents changes (pick it with `mode.sh`):
+
+| Option | Cert served | What a spoofed victim sees | Lesson |
+|--------|-------------|----------------------------|--------|
+| **1 — `warn`** (default) | self-signed `social.lab` | a certificate **warning** | the CA stops the MITM |
+| **2 — `trusted`** | `social.lab` **forged with the stolen CA key** | **no warning**, green padlock | a stolen CA key defeats the CA |
+
+Option 1 is the setup from before and is unchanged. Option 2 is the escalation
+below.
+
+## Option 1 — the certificate warning (default)
 
 Start the lab (the attacker builds with everything else):
 
@@ -87,11 +102,62 @@ browser warning is the last line of defence, and heeding it stops it fully.
 > Firefox caches DNS for about a minute. After flipping `spoof.sh`, give it a
 > moment or restart Firefox if the old destination sticks.
 
-## Why the attacker can't avoid the warning
+### Why option 1's attacker can't avoid the warning
 
 To serve `social.lab` without a warning, the attacker would need a certificate
 for `social.lab` signed by the lab Root CA. The CA only issues one to the party
 that registered the domain in the CA portal and controls its DNS record, and it
 writes the name into the certificate itself. The attacker can make a
 certificate that *says* `social.lab`, but it can only sign it with its own key —
-which no browser trusts. That is the entire value of the CA.
+which no browser trusts. That is the entire value of the CA… **unless the
+attacker gets the CA's own key.**
+
+## Option 2 — a stolen CA key defeats the warning
+
+This is the catastrophe case: what happens when the CA's **root private key**
+is compromised. In this lab that key lives in the `ca` instance and has no
+passphrase, so a single stolen copy is enough to sign anything.
+
+**1. Steal the CA key and forge a certificate** (from the host):
+
+```bash
+./attacker/mode.sh trusted
+```
+
+This runs `forge_cert.sh`, which copies the CA root key out of the `ca`
+instance and uses it to sign the attacker's own `social.lab` certificate — a
+real leaf cert that chains to `CA Lab Root CA`. The attacker then serves that
+cert instead of the self-signed one. (The exfiltration is simulated by reading
+the key from the `ca` container; a real breach is the only hard part, and this
+lab's unprotected key shows why that key must never leak.)
+
+**2. Spoof the name on Alice's machine**, exactly as before:
+
+```bash
+./attacker/spoof.sh on
+```
+
+**3. Alice visits `https://social.lab`.** This time **there is no warning**.
+Firefox trusts the lab Root CA; the forged certificate is validly signed by it
+and names `social.lab`, so the chain checks out and the padlock is green. The
+page looks genuine, Alice logs in, and the credentials land in the attacker's
+terminal — with no visual cue that anything is wrong.
+
+**4. Restore when done:**
+
+```bash
+./attacker/spoof.sh off        # stop redirecting Alice
+./attacker/mode.sh warn        # go back to the self-signed cert (option 1)
+```
+
+Check which certificate is live at any time with `./attacker/mode.sh status`.
+
+### What this teaches
+
+A CA warning only protects users while the CA's private key stays secret. Once
+that key is stolen, the attacker can mint a trusted certificate for *any* name,
+and TLS gives the victim no signal at all. That is why a real CA guards its root
+key offline in an HSM, and why a known key compromise forces the whole PKI to
+revoke and replace the root — every client must stop trusting it. The fix for
+option 1 (the CA) is only as strong as the secrecy of the CA's key, which is
+what option 2 removes.

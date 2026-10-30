@@ -7,7 +7,13 @@
 #      `docker compose logs -f attacker`
 cd /app
 
+# Option 1's self-signed cert; make it if it isn't there yet.
 [ -f server/cert.pem ] || bash make_cert.sh
+
+# The live cert Apache serves. Default to the self-signed one, so a fresh
+# start behaves exactly like before (browser warning). mode.sh swaps it.
+mkdir -p live
+[ -f live/cert.pem ] || { cp server/cert.pem live/cert.pem; cp server/key.pem live/key.pem; }
 
 touch harvested.log /var/log/attacker-app.log
 python app.py >> /var/log/attacker-app.log 2>&1 &

@@ -27,6 +27,11 @@ social/enroll.sh
 # Attacker: its self-signed key/cert and the harvested credentials
 attacker/server/
 attacker/harvested.log
+# Option 2 - the stolen CA key, the forged cert (holds a private key) and the
+# live cert Apache serves. None of these may ever be committed.
+attacker/stolen-ca/
+attacker/server-forged/
+attacker/live/
 
 # User machines: whole Firefox profiles (cookies, sessions, cache)
 alice/
