@@ -51,19 +51,24 @@ services:
       labnet:
         ipv4_address: 172.28.0.53
 
-  # Social Lab — a small photo-sharing site (posts, likes, comments).
-  # Set it up once with ./install.sh inside it; ./install.sh https lists
-  # the steps to put it on HTTPS - the site only opens once that's done.
+  # The web server: Apache in front of Social Lab (posts, likes, comments),
+  # serving it as social.lab and as SEEDPKILab2020.com (SEED Tasks 3-4).
+  # Set Social Lab up once with ./install.sh inside it.
   social:
     build: ./social
     container_name: ca-lab-social
-    command: python app.py
+    command: bash apache/start.sh
+    init: true
     environment:
-      - SITE_DOMAIN=social.lab    # the only name the site answers to
+      - SITE_DOMAINS=social.lab seedpkilab2020.com   # the only names it answers to
     ports:
-      - "5005:443"         # Mac: https://social.lab:5005
+      - "80:80"            # Mac: http://social.lab, http://seedpkilab2020.com (redirect)
+      - "443:443"          # Mac: https://social.lab, https://seedpkilab2020.com
+      - "4433:4433"        # Mac: https://seedpkilab2020.com:4433 (Task 3, openssl s_server)
     volumes:
       - ./social:/app
+      - ./social/apache/sites-available:/etc/apache2/sites-available:ro
+      - ./social/apache/sites-enabled:/etc/apache2/sites-enabled
     dns:
       - 172.28.0.53
     depends_on:

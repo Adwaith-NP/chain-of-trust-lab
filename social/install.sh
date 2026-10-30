@@ -61,8 +61,8 @@ BACK ON THIS SERVER
        openssl pkey -pubout -in server/key.pem | sha256sum
  10. The certificate must chain to the lab CA - expect "OK":
        openssl verify -CAfile server/ca-root.pem server/cert.pem
- 11. Restart (on the host); the site opens on 443 as $DOMAIN only, and
-     port 80 sends every plain-HTTP visitor there:
+ 11. Restart (on the host); Apache then serves $DOMAIN on 443 and
+     sends every plain-HTTP visitor there:
        docker compose restart social
  12. Test in Alice's Firefox: type  $DOMAIN  - it should land on
      https://$DOMAIN with a padlock and no warning (her Firefox already
@@ -100,7 +100,7 @@ else:
 PY
 
 echo "[4/4] Done. The site opens only at https://$DOMAIN, so HTTPS comes next."
-echo "      Until then, http://$DOMAIN (or http://$SERVER_IP) says it's closed."
+echo "      Until then, http://$DOMAIN says it's closed."
 echo
 
 read -r -p "Show the HTTPS setup steps now? [Y/n] " answer || answer=""

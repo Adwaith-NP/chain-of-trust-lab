@@ -36,6 +36,7 @@ from werkzeug.wrappers import Request, Response
 BASE_DIR = Path(__file__).resolve().parent
 CA_DIR = BASE_DIR / "demoCA"
 CA_CERT = CA_DIR / "cacert.pem"
+CA_KEY = CA_DIR / "private" / "cakey.pem"
 DB_PATH = BASE_DIR / "ca_portal.db"
 OPENSSL_CNF = BASE_DIR / "openssl.cnf"
 ENROLL_DIR = BASE_DIR / "enrollments"
@@ -60,6 +61,10 @@ DOMAIN_RE = re.compile(
 app = Flask(__name__)
 app.secret_key = os.environ.get("CA_SECRET_KEY", "ca-lab-dev-secret")
 app.config["SESSION_COOKIE_SECURE"] = True
+
+# The CA key's passphrase, held only in this process's memory after the
+# operator unlocks the CA on the dashboard. A restart locks the CA again.
+ca_passphrase = None
 
 
 @app.before_request
@@ -129,16 +134,23 @@ def state_of(e):
 
 # ---------------------------------------------------------------- openssl
 
-def run_openssl(args):
+def run_openssl(args, stdin=None):
     """Run an openssl command from the project directory (demoCA is relative)."""
     result = subprocess.run(
         ["openssl", *args],
-        cwd=BASE_DIR,
+        cwd=BASE_DIR, input=stdin,
         capture_output=True, text=True,
     )
     if result.returncode != 0:
         raise RuntimeError(f"openssl {args[0]} failed:\n{result.stderr}")
     return result.stdout
+
+
+def ca_state():
+    """'unprotected' (key has no passphrase), 'locked' or 'unlocked'."""
+    if not CA_KEY.exists() or "ENCRYPTED" not in CA_KEY.read_text()[:100]:
+        return "unprotected"
+    return "locked" if ca_passphrase is None else "unlocked"
 
 
 def ca_fingerprint():
@@ -175,10 +187,15 @@ def sign_request(e, csr_pem):
         "authorityKeyIdentifier = keyid, issuer\n"
         f"subjectAltName = DNS:{e['domain']}\n")
     org = re.sub(r"[^A-Za-z0-9 ._-]", "", e["company"]).strip() or e["domain"]
-    run_openssl(["ca", "-batch", "-notext", "-config", str(OPENSSL_CNF),
-                 "-extfile", str(ext_path),
-                 "-subj", f"/O={org}/CN={e['domain']}",
-                 "-in", str(csr_path), "-out", str(cert_path)])
+    args = ["ca", "-batch", "-notext", "-config", str(OPENSSL_CNF),
+            "-extfile", str(ext_path),
+            "-subj", f"/O={org}/CN={e['domain']}",
+            "-in", str(csr_path), "-out", str(cert_path)]
+    if ca_state() == "unlocked":
+        # The passphrase goes in on stdin: never on a command line or disk.
+        run_openssl(args + ["-passin", "stdin"], stdin=ca_passphrase + "\n")
+    else:
+        run_openssl(args)
     serial = run_openssl(["x509", "-in", str(cert_path), "-noout",
                           "-serial"]).strip().split("=", 1)[1]
     return cert_path.read_text(), serial
@@ -306,7 +323,33 @@ def dashboard():
         for r in rows]
     return render_template(
         "dashboard.html", enrollments=enrollments, legacy=legacy,
+        ca_state=ca_state(),
         fingerprint=ca_fingerprint() if CA_CERT.exists() else None)
+
+
+@app.route("/unlock", methods=["POST"])
+@login_required
+def unlock():
+    global ca_passphrase
+    passphrase = request.form.get("passphrase", "")
+    try:
+        run_openssl(["pkey", "-in", str(CA_KEY), "-passin", "stdin", "-noout"],
+                    stdin=passphrase + "\n")
+    except RuntimeError:
+        flash("Wrong passphrase - the CA stays locked.")
+        return redirect(url_for("dashboard"))
+    ca_passphrase = passphrase
+    flash("CA unlocked: it can sign until the portal restarts or you lock it.")
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/lock", methods=["POST"])
+@login_required
+def lock():
+    global ca_passphrase
+    ca_passphrase = None
+    flash("CA locked.")
+    return redirect(url_for("dashboard"))
 
 
 def show_code_once(enrollment_id, code):
@@ -421,6 +464,10 @@ def enroll_script():
     return send_file(ENROLL_SCRIPT, mimetype="text/plain")
 
 
+CA_LOCKED = ("The CA is locked - its operator has to unlock it with the CA key's "
+             "passphrase first. Try again later; your code stays valid.")
+
+
 @app.route("/enroll/check", methods=["POST"])
 def enroll_check():
     e, error = enrollment_for_code(request.form.get("code", ""))
@@ -428,6 +475,8 @@ def enroll_check():
         error = requester_problem(e)
     if error:
         return plain(error, 403)
+    if ca_state() == "locked":
+        return plain(CA_LOCKED, 503)
     expires = stamp(datetime.fromisoformat(e["expires_at"]))
     return plain(f"company={e['company']}\ndomain={e['domain']}\n"
                  f"ip={e['ip']}\nexpires={expires}")
@@ -440,6 +489,8 @@ def enroll():
         error = requester_problem(e)
     if error:
         return plain(error, 403)
+    if ca_state() == "locked":
+        return plain(CA_LOCKED, 503)
     csr = request.form.get("csr", "")
     if "-----BEGIN CERTIFICATE REQUEST-----" not in csr or len(csr) > 20_000:
         return plain("No certificate request (CSR) was received.", 400)

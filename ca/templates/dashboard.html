@@ -12,6 +12,32 @@
   code.fp { font-size: 11px; word-break: break-all; }
 </style>
 
+{% if ca_state == 'unprotected' %}
+<div class="card" style="border-left: 4px solid #d97706">
+  <h2>The CA's private key has no passphrase</h2>
+  <p class="muted" style="margin-bottom:0">Anyone who copies <code>demoCA/private/cakey.pem</code> can sign
+     certificates as this CA. Protect it: <code>seed/task1_ca.sh</code> (step 4) encrypts it.</p>
+</div>
+{% elif ca_state == 'locked' %}
+<div class="card" style="border-left: 4px solid #dc2626">
+  <h2>🔒 CA locked</h2>
+  <p class="muted">The CA key is encrypted. Enter its passphrase to let the CA sign; it is kept in
+     memory only, until the portal restarts or you lock it again.</p>
+  <form method="post" action="{{ url_for('unlock') }}">
+    <label for="passphrase">CA key passphrase</label>
+    <input id="passphrase" name="passphrase" type="password" required autocomplete="off">
+    <button type="submit">Unlock the CA</button>
+  </form>
+</div>
+{% else %}
+<div class="card" style="border-left: 4px solid #059669">
+  <form method="post" action="{{ url_for('lock') }}" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+    <span>🔓 <strong>CA unlocked</strong> <span class="muted">— the passphrase is held in memory only</span></span>
+    <button type="submit" style="margin:0">Lock</button>
+  </form>
+</div>
+{% endif %}
+
 <div class="card">
   <h2>Register a company for a certificate</h2>
   <p class="muted">The company's own server makes its private key and asks for the certificate

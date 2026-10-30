@@ -17,7 +17,7 @@ openssl req -new -config openssl.cnf \
     -key server/key.pem -out server/csr.pem \
     -subj "/O=CA Lab/CN=ca.lab"
 
-echo "[2/3] Signing it with the CA..."
+echo "[2/3] Signing it with the CA (asks for the CA key's passphrase)..."
 cat > server/extensions.cnf <<'EOF'
 basicConstraints = CA:FALSE
 keyUsage = critical, digitalSignature, keyEncipherment
@@ -34,4 +34,4 @@ echo "[3/3] Done. Portal certificate:"
 openssl x509 -in server/cert.pem -noout -subject -ext subjectAltName -enddate
 
 echo
-echo "python app.py will now serve HTTPS."
+echo "Restart the portal to use it: docker compose restart ca"

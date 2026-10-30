@@ -12,6 +12,11 @@ ca/ca_portal.db
 dns/server/
 dns/dns_portal.db
 
+# SEED tasks: keys, requests and certificates made by seed/task2_server_cert.sh
+ca/seed/
+social/seed/
+social/apache/sites-enabled/
+
 # Social Lab
 social/server/
 social/uploads/

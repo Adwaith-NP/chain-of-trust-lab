@@ -3,13 +3,15 @@
 People log in, post photos with a caption, and like and comment on each
 other's posts. Run ./install.sh once to create the database and the admin
 account; until then every page says the server isn't installed.
+
+The app listens on 127.0.0.1:8000 only. Apache (apache/) is the web server
+in front of it: it does HTTPS for each site name and passes requests here.
 """
 
 import os
 import re
 import secrets
 import sqlite3
-import threading
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
@@ -17,18 +19,15 @@ from pathlib import Path
 from flask import (Flask, abort, flash, g, redirect, render_template, request,
                    send_from_directory, session, url_for)
 from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.serving import make_server
-from werkzeug.wrappers import Request, Response
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "social.db"
 UPLOAD_DIR = BASE_DIR / "uploads"
-SERVER_CERT = BASE_DIR / "server" / "cert.pem"
-SERVER_KEY = BASE_DIR / "server" / "key.pem"
 
-# The only name this site answers to; requests for its IP, localhost or
-# any other name are refused.
-SITE_DOMAIN = os.environ.get("SITE_DOMAIN", "social.lab")
+# The only names this site answers to; requests for its IP, localhost or
+# any other name are refused (Apache refuses them first).
+SITE_DOMAINS = os.environ.get(
+    "SITE_DOMAINS", "social.lab seedpkilab2020.com").lower().split()
 
 # Same lab login as the CA and DNS portals.
 ADMIN_USER = os.environ.get("SOCIAL_ADMIN_USER", "admin").lower()
@@ -136,8 +135,9 @@ def create_user(username, password):
 
 @app.before_request
 def only_own_domain():
-    if request.host.split(":")[0].lower() != SITE_DOMAIN:
-        return (f"This server only answers as https://{SITE_DOMAIN}\n", 421,
+    if request.host.split(":")[0].lower() not in SITE_DOMAINS:
+        names = " or ".join(f"https://{d}" for d in SITE_DOMAINS)
+        return (f"This server only answers as {names}\n", 421,
                 {"Content-Type": "text/plain; charset=utf-8"})
 
 
@@ -334,34 +334,5 @@ def uploaded(name):
 
 # ---------------------------------------------------------------- serving
 
-def http_front(https_ready):
-    """Port 80 takes plain HTTP from anyone, but only to send the visitor on
-    to https://SITE_DOMAIN - it never serves the site itself."""
-    @Request.application
-    def front(req):
-        if not https_ready:
-            if not DB_PATH.exists():
-                text = "Social Lab isn't installed yet."
-            else:
-                text = (f"Social Lab only runs over HTTPS at https://{SITE_DOMAIN},\n"
-                        "which isn't set up yet.")
-            return Response(text + "\n", status=503, mimetype="text/plain")
-        target = f"https://{SITE_DOMAIN}{req.path}"
-        if req.query_string:
-            target += "?" + req.query_string.decode()
-        return redirect(target, code=301)
-
-    return make_server("0.0.0.0", 80, front)
-
-
 if __name__ == "__main__":
-    if SERVER_CERT.exists() and SERVER_KEY.exists():
-        print(f" * HTTPS on port 443 as {SITE_DOMAIN} only; port 80 redirects there")
-        front = http_front(https_ready=True)
-        threading.Thread(target=front.serve_forever, daemon=True).start()
-        app.run(host="0.0.0.0", port=443,
-                ssl_context=(str(SERVER_CERT), str(SERVER_KEY)))
-    else:
-        print(" * No certificate - the site stays closed; ./install.sh https lists the steps",
-              flush=True)
-        http_front(https_ready=False).serve_forever()
+    app.run(host="127.0.0.1", port=8000)

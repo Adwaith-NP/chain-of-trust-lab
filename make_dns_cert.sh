@@ -8,6 +8,9 @@
 set -e
 cd "$(dirname "$0")"
 
+# Signing asks for the CA key's passphrase, so that step needs the terminal.
+if [ -t 0 ]; then CA_TTY=""; else CA_TTY="-T"; fi
+
 if [ ! -f ca/demoCA/cacert.pem ]; then
     echo "The CA does not exist yet - run: docker compose exec ca ./setup_ca.sh"
     exit 1
@@ -25,8 +28,8 @@ openssl req -new -key server/key.pem -out server/csr.pem \
 echo "[2/4] Handing the CSR to the ca instance..."
 cp dns/server/csr.pem ca/dns-portal.csr
 
-echo "[3/4] ca instance: signing with the CA..."
-docker compose exec -T ca bash -c '
+echo "[3/4] ca instance: signing with the CA (asks for the CA key's passphrase)..."
+docker compose exec $CA_TTY ca bash -c '
 set -e
 cat > dns-portal-ext.cnf <<EOF
 basicConstraints = CA:FALSE

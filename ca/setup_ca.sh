@@ -18,15 +18,18 @@ touch demoCA/index.txt          # database index file (empty to start)
 echo 1000 > demoCA/serial       # the current serial number
 
 echo "[2/3] Generating the root CA key and self-signed certificate..."
+echo "      Choose a passphrase for the CA key - and don't lose it:"
+echo "      every certificate this CA signs needs it."
 openssl req -new -x509 -config openssl.cnf \
     -keyout demoCA/private/cakey.pem \
     -out demoCA/cacert.pem \
-    -days 3650 -nodes \
+    -days 3650 \
     -subj "/C=IN/ST=Kerala/O=CA Lab/CN=CA Lab Root CA"
+chmod 600 demoCA/private/cakey.pem
 
 echo "[3/3] Done. Root CA certificate:"
 openssl x509 -in demoCA/cacert.pem -noout -subject -issuer -dates
 
 echo
-echo "Next: ./make_server_cert.sh  (HTTPS certificate for the portal)"
-echo "Then: python app.py"
+echo "Next: ./make_server_cert.sh  (HTTPS certificate for the portal; asks for the passphrase)"
+echo "Then: docker compose restart ca, and unlock the CA on its dashboard"

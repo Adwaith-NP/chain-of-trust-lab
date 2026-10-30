@@ -13,7 +13,7 @@ with its own folder, Dockerfile and web portal:
 |----------|------------|--------------------|--------------------------|---------------|-------------|
 | `ca`     | `ca/`      | https://ca.lab     | https://ca.lab:5001      | 172.28.0.10   | —           |
 | `dns`    | `dns/`     | https://dns.lab    | https://dns.lab:5002     | 172.28.0.53   | DNS on 127.0.0.1:1053 (udp+tcp) |
-| `social` | `social/`  | https://social.lab | https://social.lab:5005  | 172.28.0.20   | —           |
+| `social` | `social/`  | https://social.lab, https://seedpkilab2020.com | the same (Mac ports 80, 443) | 172.28.0.20 | 4433: SEED Task 3 `s_server` |
 | `alice`  | `alice/`   | —                  | http://localhost:5003    | 172.28.0.100  | —           |
 | `adwaith`| `adwaith/` | —                  | http://localhost:5004    | 172.28.0.101  | —           |
 
@@ -34,22 +34,24 @@ a certificate and the site behind it always mean the same thing:
 | `https://<its domain>`                         | the site |
 | `https://<its IP>`, `localhost` or another name | refused: the certificate names only the domain, and the server itself answers `421 Misdirected Request` |
 
-Each server's domain is its `SITE_DOMAIN` setting in `docker-compose.yml`,
-and its certificate carries only that name (`DNS:ca.lab`, ...). Until a
-server has its certificate, its front door says the site is closed and
-nothing listens on 443.
+Each server's names are its `SITE_DOMAIN` (`SITE_DOMAINS` for the web
+server) setting in `docker-compose.yml`, and each certificate carries only
+its name (`DNS:ca.lab`, ...). Until a server has its certificate, its front
+door says the site is closed. On the web server, Apache does all of this:
+one virtual host per name, and a catch-all that answers 421.
 
-From the Mac: Docker publishes the sites on `localhost`, one port each, but
-the sites refuse `localhost`. Point the names at your Mac once (asks for
-your password):
+From the Mac: Docker publishes the sites on `localhost`, but the sites
+refuse `localhost`. Point the names at your Mac once (asks for your
+password):
 
 ```bash
-echo "127.0.0.1 ca.lab dns.lab social.lab" | sudo tee -a /etc/hosts
+seed/mac_hosts.sh
 ```
 
-then use https://ca.lab:5001, https://dns.lab:5002 and
-https://social.lab:5005 (trusted once the root CA is in the keychain — see
-the ca section). Inside the lab, Alice's and Adwaith's Firefox need no setup.
+then use https://ca.lab:5001, https://dns.lab:5002, https://social.lab and
+https://seedpkilab2020.com (trusted once the root CA is in the keychain —
+`seed/mac_trust_ca.sh`). Inside the lab, Alice's and Adwaith's Firefox need
+no setup.
 
 ## Running the project
 
@@ -103,12 +105,26 @@ a company's row starts a renewal; any earlier code stops working.
 Registrations made with the old flow (where the CA generated the company's
 private key) are listed read-only as *Earlier registrations*.
 
+### The CA key's passphrase and the portal lock
+
+The CA's private key (`demoCA/private/cakey.pem`) is encrypted with a
+passphrase (`setup_ca.sh` asks for one; `seed/task1_ca.sh` encrypts an
+existing key). Every signing needs it:
+
+- **in the portal** — the dashboard starts **locked** after every restart.
+  The operator types the passphrase to unlock it; the portal keeps it in
+  memory only and hands it to `openssl ca` on stdin, never on a command
+  line or disk. While locked, enrollment answers "The CA is locked" and the
+  company's code stays valid. *Lock* forgets the passphrase again.
+- **on the command line** — `openssl ca` asks for it (`make_server_cert.sh`,
+  `make_dns_cert.sh`, the SEED scripts, the manual checklists).
+
 One-time setup (already done if `ca/demoCA` exists):
 
 ```bash
-docker compose exec ca ./setup_ca.sh           # root CA key + certificate
+docker compose exec ca ./setup_ca.sh           # root CA: asks for the key's passphrase
 docker compose exec ca ./make_server_cert.sh   # HTTPS cert for the portal itself
-docker compose restart ca
+docker compose restart ca                      # then unlock the CA on its dashboard
 ```
 
 The portal serves HTTPS with a certificate issued by its own CA. To make
@@ -148,7 +164,27 @@ Test a registered domain from your Mac:
 dig @127.0.0.1 -p 1053 example.lab +short
 ```
 
-## Instance: social — Social Lab (photo sharing)
+## Instance: social — the web server (Apache + Social Lab)
+
+Apache on 172.28.0.20 serves the Social Lab app (which listens on
+127.0.0.1:8000 inside, out of reach) as two sites, each with its own
+certificate — the browser's name (SNI) picks which one:
+
+| Site | Certificate | Apache file |
+|------|-------------|-------------|
+| `social.lab` | from the CA's enrollment, in `/app/server` | `social-lab.conf` |
+| `seedpkilab2020.com` | SEED Task 2, encrypted key, in `/app/seed` | `default-ssl.conf` (SEED Task 4) |
+
+`000-default.conf` is read first, so its catch-all virtual hosts answer
+every request by IP or for an unknown name: 421. The site files live in
+`social/apache/sites-available/` (mounted into Apache); `sites-enabled/`
+is kept in the project too, so `a2ensite` survives a rebuild.
+
+When the container starts, nobody is there to type seedpkilab2020.com's
+passphrase, so Apache starts without that site (`-D NO_SEED`);
+`seed/start_web.sh` restarts Apache with it and asks for the passphrase.
+
+### Social Lab (photo sharing)
 
 A small photo-sharing site: post photos with a caption, see everyone's
 posts, like and comment. Log in with `admin` / `admin123` (the same as the
@@ -179,9 +215,9 @@ registers `social.lab -> 172.28.0.20` in the CA portal and you run the
 three commands from the message in `docker compose exec social bash`
 (they save into `./server`, exactly where Social Lab looks).
 
-HTTPS is required, not optional: the site stays closed until
-`server/cert.pem` and `server/key.pem` exist, and after a restart it opens
-at https://social.lab only.
+HTTPS is required, not optional: `http://social.lab` says the site is
+closed until `server/cert.pem` and `server/key.pem` exist; after
+`docker compose restart social`, Apache serves it at https://social.lab.
 
 ## Instances: alice and adwaith — user machines (Ubuntu + Firefox GUI)
 
@@ -215,6 +251,57 @@ typed `ca.lab` as a web search. The same policy locks
 `browser.fixup.domainsuffixwhitelist.lab` on, so typing just `ca.lab`
 opens the site.
 
+## SEED PKI Lab — tasks and scripts
+
+The lab covers the SEED Labs *PKI Lab*. Each task has a script in `seed/`,
+run from the project folder on the Mac. Every command is printed with the
+machine it runs on — `[CA 172.28.0.10]$ openssl ca …` — then run there, so
+the output can go straight into a report. The scripts pause between steps
+(Enter continues) and ask for passphrases and confirmations like the
+handout's commands do.
+
+| Task | Script | What it does |
+|------|--------|--------------|
+| — (once) | `seed/mac_hosts.sh` | the lab's names in the Mac's `/etc/hosts` |
+| 1 — Becoming a CA | `seed/task1_ca.sh` | `[CA_default]` of `openssl.cnf`, the `demoCA` folders, `index.txt`, `serial`, the self-signed root; encrypts the CA key with a passphrase |
+| 2 — Certificate for SEEDPKILab2020.com | `seed/task2_server_cert.sh` | web server: `genrsa -aes128` key, `rsa -text`, CSR with CN SEEDPKILab2020.com; CA: `openssl ca` signs it |
+| 3 — HTTPS with `openssl s_server` | `seed/task3_s_server.sh` | DNS record, `server.pem` = key + certificate, `s_server -www` on port 4433 |
+| 3, step 3 — trust our CA | `seed/mac_trust_ca.sh` | the root CA into the macOS keychain (Chrome and Safari use it) |
+| 3, step 4.1 — one modified byte | `seed/task3_modify_byte.sh` (or `… key`) | a copy of `server.pem` with one byte of the certificate (or key) changed |
+| 4 — Apache HTTPS site | `seed/task4_apache.sh` | `default-ssl.conf`, `apachectl configtest`, `a2enmod ssl`, `a2ensite default-ssl`, restart (asks for the key's passphrase) |
+| — | `seed/start_web.sh` | after the web server restarts: Apache with SEEDPKILab2020.com again |
+
+Order: `mac_hosts.sh` once → Task 1 → unlock the CA on its dashboard →
+Task 2 → Task 3 (in Chrome on the Mac: the "issuer unknown" screenshot,
+then `mac_trust_ca.sh` and reload; also https://localhost:4433) → step 4.1
+→ Task 4.
+
+Where the lab differs from the handout, and why:
+
+| Handout | Lab | Why |
+|---------|-----|-----|
+| `genrsa -aes128 … 1024` | 2048 bits | OpenSSL 3 refuses 1024-bit RSA keys: `ee key too small` |
+| the name only in the Common Name | also in the Subject Alternative Name | browsers check only the SAN |
+| `ca.key`, `ca.crt` | `demoCA/private/cakey.pem`, `demoCA/cacert.pem` | the names `openssl.cnf` expects — `openssl ca` needs no `-cert`/`-keyfile` |
+| `/etc/hosts` on each machine | one record in the lab DNS (the Mac: `/etc/hosts`) | the lab has its own DNS server |
+| import `ca.crt` into Firefox by hand | Alice/Adwaith: Firefox policy; the Mac: keychain | screenshots come from Chrome on the Mac |
+| Apache serves files from a `DocumentRoot` | Apache passes requests to the Social Lab app (`ProxyPass`) | the website is the photo-sharing app |
+| `sudo service apache2 restart` | `apache/restart.sh` (`apachectl stop` + `start`) | a container has no service manager |
+
+## Every setup script
+
+| Script | Runs on | Sets up |
+|--------|---------|---------|
+| `ca/setup_ca.sh` | CA | `demoCA` folders, `index.txt`, `serial`, encrypted root key, self-signed root certificate |
+| `ca/make_server_cert.sh` | CA | the CA portal's HTTPS certificate |
+| `make_dns_cert.sh` | Mac → DNS + CA | the DNS portal's HTTPS certificate (key made on dns, signed on ca) |
+| `dns/add_record.sh` | DNS | a DNS record, same as the portal's form |
+| `social/install.sh` | web server | Social Lab: folders, database, admin account; prints the manual HTTPS steps |
+| `ca/enroll.sh` | a company's server | its key + certificate through a one-time enrollment code |
+| `social/apache/start.sh` | web server | container start-up: the app, then Apache |
+| `social/apache/restart.sh` | web server | Apache restart (asks for SEEDPKILab2020.com's key passphrase) |
+| `seed/*.sh` | Mac | SEED tasks 1–4, above |
+
 ## Next: the attack lab (planned)
 
 An attacker machine joins `labnet` and places itself between Alice and the
@@ -231,14 +318,15 @@ sites (DNS spoofing, an intercepting proxy):
 
 ```bash
 docker compose down
-rm -rf ca/demoCA ca/server ca/clients ca/ca_portal.db dns/dns_portal.db dns/server social/social.db social/uploads social/server
+rm -rf ca/demoCA ca/server ca/clients ca/enrollments ca/seed ca/ca_portal.db dns/dns_portal.db dns/server social/social.db social/uploads social/server social/seed social/apache/sites-enabled/*
 ```
 
 After a reset: `setup_ca.sh` and `make_server_cert.sh` in ca, then
 `./make_dns_cert.sh`, then register `ca.lab -> 172.28.0.10` at
 https://dns.lab (reachable straight away, since `dns.lab` always resolves).
 
-> Lab setup only: no key passphrases, and the CA portal hands out client
-> private keys. Don't use this pattern in production.
-> Note for builds: avoid `apt-get` in Dockerfiles here — this Mac routes
-> container HTTP through a dead proxy (127.0.0.1:8081); HTTPS (pip) works.
+> Lab setup only: Flask development servers and one shared admin password.
+> Don't use this pattern in production.
+> Note for builds: this Mac routes container HTTP through a dead proxy
+> (127.0.0.1:8081), so the web server's Dockerfile switches apt to HTTPS
+> sources; pip already uses HTTPS.
