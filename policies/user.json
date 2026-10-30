@@ -1,0 +1,13 @@
+{
+  "policies": {
+    "Certificates": {
+      "Install": ["ca-lab-root.pem"]
+    },
+    "Preferences": {
+      "browser.fixup.domainsuffixwhitelist.lab": {
+        "Value": true,
+        "Status": "locked"
+      }
+    }
+  }
+}

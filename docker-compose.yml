@@ -1,0 +1,124 @@
+# CA Lab project — all instances in one place.
+#   docker compose up -d --build   start everything
+#   docker compose ps              list all instances of this project
+#   docker compose exec ca bash    shell into an instance
+name: ca-lab
+
+# One lab network with fixed addresses, so instances can find each other
+# by IP and domains registered in the DNS portal can point at them.
+networks:
+  labnet:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+services:
+  ca:
+    build: ./ca
+    container_name: ca-lab-ca
+    command: python app.py
+    environment:
+      - SITE_DOMAIN=ca.lab        # the only name the portal answers to
+    # Inside the lab: https://ca.lab (443). The Mac has one localhost, so
+    # each site needs its own host port there - and the Mac must know the
+    # name too (/etc/hosts), because the sites refuse IPs and localhost.
+    ports:
+      - "5001:443"         # Mac: https://ca.lab:5001
+    volumes:
+      - ./ca:/app
+    dns:
+      - 172.28.0.53        # enrollment checks that a domain points at the requester
+    depends_on:
+      - dns
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.10
+
+  dns:
+    build: ./dns
+    container_name: ca-lab-dns
+    command: python app.py
+    environment:
+      - SITE_DOMAIN=dns.lab       # the only name the portal answers to
+      - DNS_SELF_IP=172.28.0.53   # dns.lab always resolves here
+    ports:
+      - "5002:443"         # Mac: https://dns.lab:5002
+      - "1053:53/udp"      # dig @127.0.0.1 -p 1053 <domain>
+      - "1053:53/tcp"
+    volumes:
+      - ./dns:/app
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.53
+
+  # Social Lab — a small photo-sharing site (posts, likes, comments).
+  # Set it up once with ./install.sh inside it; ./install.sh https lists
+  # the steps to put it on HTTPS - the site only opens once that's done.
+  social:
+    build: ./social
+    container_name: ca-lab-social
+    command: python app.py
+    environment:
+      - SITE_DOMAIN=social.lab    # the only name the site answers to
+    ports:
+      - "5005:443"         # Mac: https://social.lab:5005
+    volumes:
+      - ./social:/app
+    dns:
+      - 172.28.0.53
+    depends_on:
+      - dns
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.20
+
+  # Alice — a user's Ubuntu machine with Firefox, GUI in the browser.
+  # She uses our DNS instance as her resolver, so domains registered in
+  # the DNS portal work in her Firefox (everything else is forwarded).
+  # The lab root CA is preinstalled in Firefox via enterprise policy.
+  alice:
+    image: lscr.io/linuxserver/firefox:latest
+    container_name: ca-lab-alice
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+    ports:
+      - "5003:3000"        # http://localhost:5003  (Alice's screen)
+    volumes:
+      - ./alice:/config    # her Firefox profile survives restarts
+      - ./policies/user.json:/etc/firefox/policies/policies.json:ro
+      - ./ca/demoCA/cacert.pem:/usr/lib/mozilla/certificates/ca-lab-root.pem:ro
+    shm_size: "1gb"
+    dns:
+      - 172.28.0.53
+    depends_on:
+      - dns
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.100
+
+  # Adwaith — the operator's machine. Same setup as alice, but his Firefox
+  # policy opens the CA and DNS portals as tabs every time it starts.
+  adwaith:
+    image: lscr.io/linuxserver/firefox:latest
+    container_name: ca-lab-adwaith
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+    ports:
+      - "5004:3000"        # http://localhost:5004  (Adwaith's screen)
+    volumes:
+      - ./adwaith:/config
+      - ./policies/operator.json:/etc/firefox/policies/policies.json:ro
+      - ./ca/demoCA/cacert.pem:/usr/lib/mozilla/certificates/ca-lab-root.pem:ro
+    shm_size: "1gb"
+    dns:
+      - 172.28.0.53
+    depends_on:
+      - dns
+      - ca
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.101

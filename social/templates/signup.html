@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Sign up — Social Lab{% endblock %}
+{% block content %}
+<div class="card pad auth">
+  <h2 style="margin-top:0">Create an account</h2>
+  <form method="post">
+    <label for="username">Username</label>
+    <input type="text" id="username" name="username" autofocus required
+           placeholder="lowercase letters, digits or _">
+    <label for="password">Password</label>
+    <input type="password" id="password" name="password" required minlength="6">
+    <button type="submit">Sign up</button>
+  </form>
+  <p class="muted center">Have an account? <a href="{{ url_for('login') }}">Log in</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,8 @@
+# Never bake CA keys, issued certs or the database into the image.
+demoCA/
+clients/
+ca_portal.db
+__pycache__/
+*.pyc
+server/
+enrollments/

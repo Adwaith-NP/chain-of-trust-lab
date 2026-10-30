@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — DNS Lab{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Register a domain</h2>
+  <form method="post" action="{{ url_for('add_record') }}">
+    <label for="domain">Domain name *</label>
+    <input id="domain" name="domain" required placeholder="example.lab">
+    <label for="ip">Points to IP address *</label>
+    <input id="ip" name="ip" required placeholder="10.0.0.5">
+    <label for="company">Company name *</label>
+    <input id="company" name="company" required placeholder="Example Pvt Ltd">
+    <label for="email">Contact email</label>
+    <input id="email" name="email" type="email" placeholder="it@example.com">
+    <label for="details">Company details</label>
+    <textarea id="details" name="details" rows="2" placeholder="Address, registration number, ..."></textarea>
+    <button type="submit">Register domain</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Registered domains</h2>
+  {% if records %}
+  <table>
+    <tr><th>Domain</th><th>IP</th><th>Company</th><th>Registered</th><th></th></tr>
+    {% for r in records %}
+    <tr>
+      <td><code>{{ r['domain'] }}</code></td>
+      <td>{{ r['ip'] }}</td>
+      <td>{{ r['company'] }}<br><span class="muted">{{ r['email'] }}</span></td>
+      <td>{{ r['created_at'] }}</td>
+      <td>
+        <form method="post" action="{{ url_for('delete_record', record_id=r['id']) }}"
+              onsubmit="return confirm('Remove {{ r['domain'] }}?');">
+          <button class="danger" type="submit">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="muted" style="margin-bottom:0">
+    Test from your Mac: <code>dig @127.0.0.1 -p 1053 {{ records[0]['domain'] }} +short</code>
+  </p>
+  {% else %}
+  <p class="muted">No domains registered yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,4 @@
+dns_portal.db
+server/
+__pycache__/
+*.pyc

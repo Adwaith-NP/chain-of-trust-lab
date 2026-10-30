@@ -1,0 +1,33 @@
+# Everything below is created when the lab runs. It holds private keys,
+# databases and browser profiles, so it never goes into git.
+
+# CA: the root key lives in demoCA/private - never commit it
+ca/demoCA/
+ca/server/
+ca/clients/
+ca/enrollments/
+ca/ca_portal.db
+
+# DNS
+dns/server/
+dns/dns_portal.db
+
+# Social Lab
+social/server/
+social/uploads/
+social/social.db
+social/ca-root.pem
+social/enroll.sh
+
+# User machines: whole Firefox profiles (cookies, sessions, cache)
+alice/
+adwaith/
+
+# Any key or certificate request that ends up elsewhere
+*.key
+*.csr
+key.pem
+
+__pycache__/
+*.pyc
+.DS_Store

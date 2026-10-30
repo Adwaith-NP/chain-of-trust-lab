@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Not installed — Social Lab{% endblock %}
+{% block content %}
+<div class="card pad auth">
+  <h2 style="margin-top:0">This server isn't installed yet</h2>
+  <p>Run the installer once, from the project folder on the host:</p>
+  <p><code>docker compose exec social ./install.sh</code></p>
+  <p class="muted">This page switches to the login screen as soon as the install finishes.</p>
+</div>
+{% endblock %}

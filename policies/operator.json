@@ -1,0 +1,25 @@
+{
+  "policies": {
+    "Certificates": {
+      "Install": ["ca-lab-root.pem"]
+    },
+    "Homepage": {
+      "URL": "https://ca.lab/",
+      "Additional": ["https://dns.lab/"],
+      "StartPage": "homepage",
+      "Locked": false
+    },
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "Preferences": {
+      "browser.fixup.domainsuffixwhitelist.lab": {
+        "Value": true,
+        "Status": "locked"
+      },
+      "browser.sessionstore.resume_from_crash": {
+        "Value": false,
+        "Status": "locked"
+      }
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Enrollment {{ e['domain'] }} — CA Lab{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>Enrollment: {{ e['company'] }} · <code>{{ e['domain'] }}</code></h2>
+  {% if message %}
+    {% if code %}
+    <p>Send this message to {{ e['company'] }} over a secure channel.
+       <strong>The code is shown only now</strong> — the CA keeps just a hash of it.</p>
+    {% else %}
+    <p class="flash">The one-time code was shown once, when it was made. If it was lost,
+       use <em>New code</em> on the dashboard.</p>
+    {% endif %}
+    <pre id="message">{{ message }}</pre>
+    <button type="button" onclick="copyMessage(this)">Copy message</button>
+  {% else %}
+    <p>This enrollment is <strong>{{ state }}</strong>, so there is no active code.
+       Use <em>New code</em> on the dashboard to start again.</p>
+  {% endif %}
+  <p><a href="{{ url_for('dashboard') }}">← Back to the dashboard</a></p>
+</div>
+<script>
+function copyMessage(button) {
+  navigator.clipboard.writeText(document.getElementById('message').innerText)
+    .then(() => { button.textContent = 'Copied'; });
+}
+</script>
+{% endblock %}

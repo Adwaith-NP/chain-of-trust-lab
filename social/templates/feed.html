@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .composer { display: grid; gap: 10px; }
+  .composer input[type=file] { font-size: 14px; }
+  .head { display: flex; align-items: center; gap: 8px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+            background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); color: #fff;
+            font-weight: 700; font-size: 14px; }
+  .head form { margin-left: auto; }
+  .post img { display: block; width: 100%; max-height: 640px; object-fit: contain; background: #efefef; }
+  .actions { display: flex; align-items: center; gap: 8px; }
+  .heart { background: none; color: #262626; padding: 0; font-size: 26px; line-height: 1; }
+  .heart:hover { background: none; color: #8e8e8e; }
+  .heart.on, .heart.on:hover { color: #ed4956; }
+  .post p { margin: 8px 0 0; font-size: 14px; }
+  .comment-form { display: flex; gap: 8px; margin-top: 12px; border-top: 1px solid #efefef; padding-top: 12px; }
+  .comment-form input { border: 0; background: none; padding: 6px 0; }
+  .comment-form button { background: none; color: #0095f6; padding: 0; }
+  .link-danger { background: none; color: #ed4956; padding: 0; font-size: 13px; }
+  .link-danger:hover { background: none; text-decoration: underline; }
+</style>
+
+<form class="card pad composer" method="post" action="{{ url_for('create_post') }}"
+      enctype="multipart/form-data">
+  <strong>Share a photo</strong>
+  <input type="file" name="photo" accept="image/jpeg,image/png,image/gif,image/webp" required>
+  <input type="text" name="caption" maxlength="500" placeholder="Write a caption…">
+  <div><button type="submit">Share</button></div>
+</form>
+
+{% for p in posts %}
+<article class="card post" id="post-{{ p['id'] }}">
+  <div class="pad head">
+    <span class="avatar">{{ p['username'][0]|upper }}</span>
+    <strong>{{ p['username'] }}</strong>
+    <span class="muted">· {{ p['created_at'] }}</span>
+    {% if p['user_id'] == g.user['id'] or g.user['username'] == admin_user %}
+    <form method="post" action="{{ url_for('delete_post', post_id=p['id']) }}"
+          onsubmit="return confirm('Delete this post?');">
+      <button class="link-danger" type="submit">Delete</button>
+    </form>
+    {% endif %}
+  </div>
+  <img src="{{ url_for('uploaded', name=p['filename']) }}" alt="Photo by {{ p['username'] }}" loading="lazy">
+  <div class="pad">
+    <div class="actions">
+      <form method="post" action="{{ url_for('toggle_like', post_id=p['id']) }}">
+        <button class="heart{{ ' on' if p['liked'] }}" type="submit"
+                aria-label="{{ 'Unlike' if p['liked'] else 'Like' }}">{{ '♥' if p['liked'] else '♡' }}</button>
+      </form>
+      <strong>{{ p['like_count'] }} like{{ '' if p['like_count'] == 1 else 's' }}</strong>
+    </div>
+    {% if p['caption'] %}<p><strong>{{ p['username'] }}</strong> {{ p['caption'] }}</p>{% endif %}
+    {% for c in comments.get(p['id'], []) %}
+      <p><strong>{{ c['username'] }}</strong> {{ c['body'] }}</p>
+    {% endfor %}
+    <form class="comment-form" method="post" action="{{ url_for('add_comment', post_id=p['id']) }}">
+      <input type="text" name="body" maxlength="500" placeholder="Add a comment…" required>
+      <button type="submit">Post</button>
+    </form>
+  </div>
+</article>
+{% else %}
+<p class="muted center">No posts yet. Share the first photo.</p>
+{% endfor %}
+{% endblock %}

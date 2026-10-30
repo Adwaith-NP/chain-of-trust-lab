@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}CA Lab{% endblock %}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #f3f4f6; color: #1f2937; }
+  header { background: #111827; color: #fff; padding: 14px 24px;
+           display: flex; justify-content: space-between; align-items: center; }
+  header h1 { font-size: 18px; margin: 0; }
+  header a { color: #93c5fd; text-decoration: none; margin-left: 16px; }
+  main { max-width: 960px; margin: 24px auto; padding: 0 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  h2 { margin-top: 0; font-size: 17px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  input, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db;
+                    border-radius: 6px; font: inherit; }
+  button { margin-top: 14px; background: #2563eb; color: #fff; border: 0;
+           padding: 9px 18px; border-radius: 6px; font: inherit; cursor: pointer; }
+  button:hover { background: #1d4ed8; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #e5e7eb; }
+  th { color: #6b7280; font-size: 12px; text-transform: uppercase; }
+  .flash { background: #fef3c7; border: 1px solid #fcd34d; padding: 10px 14px;
+           border-radius: 6px; font-size: 14px; word-break: break-all; }
+  a.btn { display: inline-block; background: #2563eb; color: #fff; padding: 8px 14px;
+          border-radius: 6px; text-decoration: none; font-size: 14px; margin: 4px 6px 0 0; }
+  a.btn.secondary { background: #4b5563; }
+  pre { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px;
+        padding: 10px; font-size: 13px; overflow-x: auto; }
+  .muted { color: #6b7280; font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>CA Lab &mdash; Certificate Authority</h1>
+  <nav>
+    {% if session.get('logged_in') %}
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('logout') }}">Log out</a>
+    {% endif %}
+  </nav>
+</header>
+<main>
+  {% with messages = get_flashed_messages() %}
+    {% for m in messages %}<p class="flash">{{ m }}</p>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>
