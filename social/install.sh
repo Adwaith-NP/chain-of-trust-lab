@@ -78,18 +78,18 @@ fi
 echo "== Social Lab - server install =="
 echo
 
-echo "[1/4] Checking requirements..."
+echo "[1/5] Checking requirements..."
 python3 -c "import flask" 2>/dev/null || { echo "      flask is missing: pip install -r requirements.txt"; exit 1; }
 command -v openssl >/dev/null || { echo "      openssl is missing"; exit 1; }
 echo "      python3, flask and openssl found"
 
-echo "[2/4] Creating data folders..."
+echo "[2/5] Creating data folders..."
 mkdir -p uploads server
 chmod 700 server
 echo "      uploads/  photos people share"
 echo "      server/   HTTPS key and certificate (private)"
 
-echo "[3/4] Creating the database and the admin account..."
+echo "[3/5] Creating the database and the admin account..."
 python3 - <<'PY'
 import app
 app.init_db()
@@ -99,7 +99,14 @@ else:
     print(f"      account '{app.ADMIN_USER}' already exists - left unchanged")
 PY
 
-echo "[4/4] Done. The site opens only at https://$DOMAIN, so HTTPS comes next."
+echo "[4/5] Demo content (members alice, bob, carol, dave + photos)..."
+read -r -p "      Add it now? [Y/n] " seed_answer || seed_answer=""
+case "$seed_answer" in
+    [nN]*) echo "      Skipped. Add it any time with:  python3 seed_demo.py" ;;
+    *)     python3 seed_demo.py ;;
+esac
+
+echo "[5/5] Done. The site opens only at https://$DOMAIN, so HTTPS comes next."
 echo "      Until then, http://$DOMAIN says it's closed."
 echo
 

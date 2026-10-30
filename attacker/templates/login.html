@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Log in — Social Lab{% endblock %}
+{% block content %}
+<style>
+  main { max-width: 960px; }
+  .auth-wrap { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px;
+               align-items: start; margin-top: 16px; }
+  @media (max-width: 800px) { .auth-wrap { grid-template-columns: 1fr; }
+                              .showcase { display: none; } }
+
+  /* Left panel: phone mockup + what the site does */
+  .showcase { padding-top: 8px; }
+  .phone { width: 260px; margin: 0 auto 24px; background: #000; border-radius: 32px;
+           padding: 12px 10px; box-shadow: 0 20px 45px rgba(0,0,0,.18); }
+  .screen { background: #fff; border-radius: 22px; overflow: hidden;
+            font-size: 11px; }
+  .screen .mini-bar { display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+                      border-bottom: 1px solid #efefef; font-weight: 700; }
+  .screen .mini-bar span { color: #e1306c; }
+  .mini-post .mini-head { display: flex; align-items: center; gap: 6px; padding: 7px 10px; }
+  .mini-avatar { width: 18px; height: 18px; border-radius: 50%;
+                 background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
+  .mini-img { height: 150px;
+              background: linear-gradient(160deg, #fdc830 0%, #f37335 45%, #8134af 100%); }
+  .mini-img.alt { height: 86px;
+              background: linear-gradient(160deg, #43cea2 0%, #185a9d 100%); }
+  .mini-meta { padding: 7px 10px; color: #262626; }
+  .mini-meta .heart { color: #ed4956; }
+  .features { list-style: none; margin: 0 auto; padding: 0; max-width: 340px; }
+  .features li { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px;
+                 font-size: 14px; }
+  .features .ico { width: 36px; height: 36px; flex: none; border-radius: 10px;
+                   display: grid; place-items: center; font-size: 17px;
+                   background: #fff; border: 1px solid #dbdbdb; }
+  .features strong { display: block; }
+  .features .muted { font-size: 13px; }
+
+  /* Right panel: the login card and its helpers */
+  .login-card h1 { margin: 0 0 2px; font-size: 30px; }
+  .login-card h1 span { color: #e1306c; }
+  .tagline { margin: 0 0 18px; color: #8e8e8e; font-size: 14px; }
+  .field { position: relative; }
+  .hint { font-weight: 400; color: #8e8e8e; float: right; }
+  .toggle-pass { position: absolute; right: 8px; bottom: 5px; background: none;
+                 color: #0095f6; font-size: 12px; font-weight: 600; padding: 4px 6px; }
+  .toggle-pass:hover { background: none; text-decoration: underline; }
+  .remember { display: flex; align-items: center; gap: 8px; margin-top: 12px;
+              font-size: 13px; color: #262626; }
+  .remember input { accent-color: #0095f6; }
+  .login-card button[type=submit] { width: 100%; margin-top: 16px; padding: 10px 16px; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 16px 0 4px;
+             color: #8e8e8e; font-size: 12px; font-weight: 600; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #dbdbdb; }
+  .demo-box { background: #fafafa; border: 1px dashed #dbdbdb; border-radius: 8px;
+              padding: 10px 14px; margin-top: 14px; font-size: 13px; }
+  .demo-box code { background: #efefef; border-radius: 4px; padding: 1px 5px; }
+  .secure-note { display: flex; gap: 8px; align-items: flex-start; margin-top: 14px;
+                 font-size: 12.5px; color: #8e8e8e; line-height: 1.45; }
+  .foot-links { margin-top: 18px; font-size: 13px; }
+  .foot-links a { color: #0095f6; text-decoration: none; font-weight: 600; }
+  .foot-links span { color: #c7c7c7; margin: 0 8px; }
+</style>
+
+<div class="auth-wrap">
+
+  <aside class="showcase">
+    <div class="phone" aria-hidden="true">
+      <div class="screen">
+        <div class="mini-bar">Social<span>Lab</span></div>
+        <div class="mini-post">
+          <div class="mini-head"><span class="mini-avatar"></span><strong>alice</strong></div>
+          <div class="mini-img"></div>
+          <div class="mini-meta"><span class="heart">♥</span> 12 likes ·
+            <strong>alice</strong> golden hour 🌄</div>
+        </div>
+        <div class="mini-post">
+          <div class="mini-head"><span class="mini-avatar"></span><strong>bob</strong></div>
+          <div class="mini-img alt"></div>
+        </div>
+      </div>
+    </div>
+    <ul class="features">
+      <li><span class="ico">📷</span>
+        <div><strong>Share photos</strong>
+          <span class="muted">Post JPEG, PNG, GIF or WebP shots with a caption.</span></div></li>
+      <li><span class="ico">❤️</span>
+        <div><strong>Like &amp; comment</strong>
+          <span class="muted">React to what other lab members share.</span></div></li>
+      <li><span class="ico">🔒</span>
+        <div><strong>HTTPS only</strong>
+          <span class="muted">Served solely at https://social.lab with a certificate
+            signed by the Lab Root CA — check the padlock.</span></div></li>
+    </ul>
+  </aside>
+
+  <div>
+    <div class="card pad login-card">
+      <h1>Social<span>Lab</span></h1>
+      <p class="tagline">Share moments on the lab network.</p>
+      <form method="post" autocomplete="off">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autofocus required
+               maxlength="20" placeholder="e.g. alice" autocapitalize="none"
+               spellcheck="false">
+        <div class="field">
+          <label for="password">Password
+            <span class="hint">at least 6 characters</span></label>
+          <input type="password" id="password" name="password" required
+                 placeholder="Your password">
+          <button type="button" class="toggle-pass"
+                  onclick="var p = document.getElementById('password');
+                           p.type = p.type === 'password' ? 'text' : 'password';
+                           this.textContent = p.type === 'password' ? 'Show' : 'Hide';">Show</button>
+        </div>
+        <label class="remember"><input type="checkbox" checked disabled>
+          Stay signed in on this browser (until you log out)</label>
+        <button type="submit">Log in</button>
+      </form>
+      <div class="divider">or</div>
+      <p class="muted center" style="margin-bottom:4px">New to Social Lab?
+        <a href="{{ url_for('signup') }}">Create an account</a></p>
+      <p class="muted center" style="margin-top:4px; font-size:12.5px">
+        Forgot your password? Ask the lab operator to reset it.</p>
+    </div>
+
+    <div class="demo-box">
+      <strong>Lab demo logins</strong><br>
+      Operator: <code>admin</code> / <code>admin123</code> — members
+      <code>alice</code>, <code>bob</code>, <code>carol</code>, <code>dave</code>
+      (password: <em>name</em><code>123</code>) exist once the demo content
+      is seeded by <code>./install.sh</code>.
+    </div>
+
+    <p class="secure-note">🔒
+      <span>This page only opens at <strong>https://social.lab</strong> (or
+      SEEDPKILab2020.com). The connection is encrypted with a certificate
+      issued by the Lab Root CA; your browser shows a padlock when the chain
+      of trust checks out. Visits by IP address are refused.</span></p>
+
+    <p class="foot-links center">
+      <a href="https://ca.lab" rel="noopener">CA Portal</a><span>·</span>
+      <a href="https://dns.lab" rel="noopener">DNS Portal</a><span>·</span>
+      <span class="muted" style="margin:0">Chain of Trust Lab</span>
+    </p>
+  </div>
+</div>
+{% endblock %}

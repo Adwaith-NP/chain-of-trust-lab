@@ -77,6 +77,32 @@ services:
       labnet:
         ipv4_address: 172.28.0.20
 
+  # The attacker — a second machine that impersonates social.lab for the
+  # "defeat the MITM" demo. It serves a fake login page over HTTPS with a
+  # SELF-SIGNED certificate (not signed by the lab CA). Poison Alice's
+  # /etc/hosts so social.lab points here (./attacker/spoof.sh on); Alice's
+  # Firefox then shows a certificate warning, because the cert doesn't chain
+  # to the CA she trusts. Watch captured logins:  docker compose logs -f attacker
+  attacker:
+    build: ./attacker
+    container_name: ca-lab-attacker
+    command: bash apache/start.sh
+    init: true
+    environment:
+      - REAL_SITE=https://social.lab/login   # where victims land after "login"
+    ports:
+      - "8081:80"          # Mac: http://localhost:8081 (redirects to https)
+      - "8443:443"         # Mac: https://localhost:8443 (curl -k to test)
+    volumes:
+      - ./attacker:/app
+    dns:
+      - 172.28.0.53
+    depends_on:
+      - dns
+    networks:
+      labnet:
+        ipv4_address: 172.28.0.66
+
   # Alice — a user's Ubuntu machine with Firefox, GUI in the browser.
   # She uses our DNS instance as her resolver, so domains registered in
   # the DNS portal work in her Firefox (everything else is forwarded).

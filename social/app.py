@@ -236,8 +236,16 @@ def feed():
         for row in rows:
             comments.setdefault(row["post_id"], []).append(row)
 
+    stats = db.execute("""
+        SELECT (SELECT COUNT(*) FROM users) AS members,
+               (SELECT COUNT(*) FROM posts) AS photos,
+               (SELECT COUNT(*) FROM likes) AS hearts
+    """).fetchone()
+    members = db.execute(
+        "SELECT username FROM users ORDER BY id LIMIT 16").fetchall()
+
     return render_template("feed.html", posts=posts, comments=comments,
-                           admin_user=ADMIN_USER)
+                           admin_user=ADMIN_USER, stats=stats, members=members)
 
 
 def post_or_404(post_id):

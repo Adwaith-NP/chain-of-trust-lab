@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Social Lab{% endblock %}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #fafafa; color: #262626; }
+  header { position: sticky; top: 0; z-index: 1; background: #fff; border-bottom: 1px solid #dbdbdb; }
+  .bar { max-width: 560px; margin: 0 auto; padding: 12px 16px;
+         display: flex; align-items: center; justify-content: space-between; }
+  .brand { font-weight: 700; font-size: 20px; color: #262626; text-decoration: none; }
+  .brand span { color: #e1306c; }
+  nav { font-size: 14px; color: #8e8e8e; }
+  nav a { color: #0095f6; text-decoration: none; font-weight: 600; margin-left: 12px; }
+  main { max-width: 560px; margin: 20px auto; padding: 0 16px; }
+  .card { background: #fff; border: 1px solid #dbdbdb; border-radius: 10px;
+          margin-bottom: 20px; overflow: hidden; }
+  .pad { padding: 14px 16px; }
+  .flash { background: #eef6ff; border: 1px solid #b6d8ff; border-radius: 8px;
+           padding: 10px 14px; font-size: 14px; margin: 0 0 16px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  input[type=text], input[type=password] { width: 100%; padding: 9px 11px; border: 1px solid #dbdbdb;
+           border-radius: 6px; font: inherit; background: #fafafa; }
+  button { background: #0095f6; color: #fff; border: 0; border-radius: 8px;
+           padding: 8px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1877f2; }
+  .muted { color: #8e8e8e; font-size: 13px; }
+  .center { text-align: center; }
+  .auth { max-width: 360px; margin: 48px auto; }
+  .auth button { width: 100%; margin-top: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="brand" href="{{ url_for('feed') }}">Social<span>Lab</span></a>
+    <nav>
+      {% if g.user %}
+        @{{ g.user['username'] }}
+        <a href="{{ url_for('logout') }}">Log out</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+<main>
+  {% with messages = get_flashed_messages() %}
+    {% for m in messages %}<p class="flash">{{ m }}</p>{% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -24,6 +24,10 @@ social/social.db
 social/ca-root.pem
 social/enroll.sh
 
+# Attacker: its self-signed key/cert and the harvested credentials
+attacker/server/
+attacker/harvested.log
+
 # User machines: whole Firefox profiles (cookies, sessions, cache)
 alice/
 adwaith/

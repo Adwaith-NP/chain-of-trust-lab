@@ -1,7 +1,33 @@
 {% extends "base.html" %}
+{% block title %}Home — Social Lab{% endblock %}
 {% block content %}
 <style>
+  .welcome { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .welcome .avatar { width: 44px; height: 44px; font-size: 18px; }
+  .welcome h2 { margin: 0; font-size: 17px; }
+  .welcome .muted { margin: 2px 0 0; }
+  .stats { margin-left: auto; display: flex; gap: 8px; }
+  .stat { background: #fafafa; border: 1px solid #efefef; border-radius: 8px;
+          padding: 6px 12px; text-align: center; font-size: 12px; color: #8e8e8e; }
+  .stat strong { display: block; font-size: 15px; color: #262626; }
+
+  .members { display: flex; gap: 14px; overflow-x: auto; padding: 14px 16px; }
+  .members .member { display: block; text-align: center; font-size: 12px;
+                     color: #262626; flex: none; width: 64px; }
+  .members .ring { display: block; box-sizing: border-box; width: 56px; height: 56px;
+                   margin: 0 auto 4px; border-radius: 50%; padding: 2px;
+                   background: linear-gradient(45deg, #f58529, #dd2a7b, #8134af); }
+  .members .ring.me { background: #dbdbdb; }
+  .members .face { box-sizing: border-box; width: 100%; height: 100%;
+                   border-radius: 50%; border: 2px solid #fff;
+                   display: grid; place-items: center; color: #fff; font-weight: 700;
+                   font-size: 18px;
+                   background: linear-gradient(200deg, #8134af, #dd2a7b); }
+  .members .name { display: block; overflow: hidden; text-overflow: ellipsis;
+                   white-space: nowrap; }
+
   .composer { display: grid; gap: 10px; }
+  .composer .head { margin-bottom: 2px; }
   .composer input[type=file] { font-size: 14px; }
   .head { display: flex; align-items: center; gap: 8px; }
   .avatar { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
@@ -21,9 +47,39 @@
   .link-danger:hover { background: none; text-decoration: underline; }
 </style>
 
+<div class="card pad welcome">
+  <span class="avatar">{{ g.user['username'][0]|upper }}</span>
+  <div>
+    <h2>Welcome back, @{{ g.user['username'] }}</h2>
+    <p class="muted">Here's what the lab has been sharing.</p>
+  </div>
+  <div class="stats">
+    <span class="stat"><strong>{{ stats['members'] }}</strong> members</span>
+    <span class="stat"><strong>{{ stats['photos'] }}</strong> photos</span>
+    <span class="stat"><strong>{{ stats['hearts'] }}</strong> likes</span>
+  </div>
+</div>
+
+{% if members %}
+<div class="card members">
+  {% for m in members %}
+  <span class="member">
+    <span class="ring{{ ' me' if m['username'] == g.user['username'] }}">
+      <span class="face">{{ m['username'][0]|upper }}</span>
+    </span>
+    <span class="name">{{ 'you' if m['username'] == g.user['username'] else m['username'] }}</span>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+
 <form class="card pad composer" method="post" action="{{ url_for('create_post') }}"
       enctype="multipart/form-data">
-  <strong>Share a photo</strong>
+  <div class="head">
+    <span class="avatar">{{ g.user['username'][0]|upper }}</span>
+    <strong>Share a photo</strong>
+    <span class="muted">JPEG, PNG, GIF or WebP · up to 8 MB</span>
+  </div>
   <input type="file" name="photo" accept="image/jpeg,image/png,image/gif,image/webp" required>
   <input type="text" name="caption" maxlength="500" placeholder="Write a caption…">
   <div><button type="submit">Share</button></div>

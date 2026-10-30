@@ -1,16 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Sign up — Social Lab{% endblock %}
 {% block content %}
+<style>
+  .auth h1 { margin: 0 0 2px; font-size: 26px; }
+  .auth h1 span { color: #e1306c; }
+  .tagline { margin: 0 0 16px; color: #8e8e8e; font-size: 14px; }
+  .hint { font-weight: 400; color: #8e8e8e; float: right; }
+  .rules { margin: 14px 0 0; padding: 10px 14px; background: #fafafa;
+           border: 1px dashed #dbdbdb; border-radius: 8px;
+           font-size: 12.5px; color: #8e8e8e; }
+  .rules ul { margin: 6px 0 0; padding-left: 18px; }
+</style>
 <div class="card pad auth">
-  <h2 style="margin-top:0">Create an account</h2>
-  <form method="post">
-    <label for="username">Username</label>
+  <h1>Join Social<span>Lab</span></h1>
+  <p class="tagline">One account to share, like and comment.</p>
+  <form method="post" autocomplete="off">
+    <label for="username">Username
+      <span class="hint">3–20 characters</span></label>
     <input type="text" id="username" name="username" autofocus required
-           placeholder="lowercase letters, digits or _">
-    <label for="password">Password</label>
-    <input type="password" id="password" name="password" required minlength="6">
+           maxlength="20" pattern="[a-z0-9_]{3,20}" autocapitalize="none"
+           spellcheck="false" placeholder="lowercase letters, digits or _">
+    <label for="password">Password
+      <span class="hint">at least 6 characters</span></label>
+    <input type="password" id="password" name="password" required minlength="6"
+           placeholder="Pick something only you know">
     <button type="submit">Sign up</button>
   </form>
+  <div class="rules">
+    <strong>House rules</strong>
+    <ul>
+      <li>Usernames are lowercase: letters, digits and _ only.</li>
+      <li>Photos up to 8 MB — JPEG, PNG, GIF or WebP.</li>
+      <li>This is a shared lab site: everyone sees what you post.</li>
+    </ul>
+  </div>
   <p class="muted center">Have an account? <a href="{{ url_for('login') }}">Log in</a></p>
 </div>
 {% endblock %}
