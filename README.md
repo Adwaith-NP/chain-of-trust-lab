@@ -270,12 +270,16 @@ handout's commands do.
 | 3, step 3 — trust our CA | `seed/mac_trust_ca.sh` | the root CA into the macOS keychain (Chrome and Safari use it) |
 | 3, step 4.1 — one modified byte | `seed/task3_modify_byte.sh` (or `… key`) | a copy of `server.pem` with one byte of the certificate (or key) changed |
 | 4 — Apache HTTPS site | `seed/task4_apache.sh` | `default-ssl.conf`, `apachectl configtest`, `a2enmod ssl`, `a2ensite default-ssl`, restart (asks for the key's passphrase) |
+| 5 — MITM defeated by the CA | `attacker/spoof.sh`, `attacker/mode.sh warn` | poison Alice's `/etc/hosts` so `social.lab` → the attacker; its self-signed cert makes Firefox warn — the attack is stopped |
+| 6 — MITM with a compromised CA | `attacker/forge_cert.sh`, `attacker/mode.sh trusted` | sign a `social.lab` cert with the **stolen CA key**; the forged cert chains to the lab CA, so there is **no warning** and the attack succeeds |
 | — | `seed/start_web.sh` | after the web server restarts: Apache with SEEDPKILab2020.com again |
 
 Order: `mac_hosts.sh` once → Task 1 → unlock the CA on its dashboard →
 Task 2 → Task 3 (in Chrome on the Mac: the "issuer unknown" screenshot,
 then `mac_trust_ca.sh` and reload; also https://localhost:4433) → step 4.1
-→ Task 4.
+→ Task 4 → Task 5 → Task 6. The full copy-paste sequence for all six tasks
+is in [**Completing the assignment**](#completing-the-assignment-tasks-16)
+below.
 
 Where the lab differs from the handout, and why:
 
@@ -288,6 +292,9 @@ Where the lab differs from the handout, and why:
 | import `ca.crt` into Firefox by hand | Alice/Adwaith: Firefox policy; the Mac: keychain | screenshots come from Chrome on the Mac |
 | Apache serves files from a `DocumentRoot` | Apache passes requests to the Social Lab app (`ProxyPass`) | the website is the photo-sharing app |
 | `sudo service apache2 restart` | `apache/restart.sh` (`apachectl stop` + `start`) | a container has no service manager |
+| MITM target `example.com` | `social.lab` (our own social network) | we attack a site we built, on the isolated lab network |
+| edit `/etc/hosts` on the victim by hand | `attacker/spoof.sh on` edits Alice's `/etc/hosts` for her | Alice is a container; the script does it and can undo it |
+| compromised CA = reuse `ca.key` | `attacker/forge_cert.sh` copies `demoCA/private/cakey.pem` out of the `ca` instance | models the key being *stolen* from the CA server |
 
 ## Every setup script
 
@@ -303,17 +310,128 @@ Where the lab differs from the handout, and why:
 | `social/apache/restart.sh` | web server | Apache restart (asks for SEEDPKILab2020.com's key passphrase) |
 | `seed/*.sh` | Mac | SEED tasks 1–4, above |
 
-## Next: the attack lab (planned)
+## Tasks 5 & 6 — the MITM attack lab (`attacker`)
 
-An attacker machine joins `labnet` and places itself between Alice and the
-sites (DNS spoofing, an intercepting proxy):
+The `attacker` instance (172.28.0.66) joins `labnet` and impersonates
+`social.lab`: it serves a pixel copy of the login page, prints every
+submitted username and password to its terminal (`harvested.log`), then
+forwards the victim to the real site. The spoof is done by poisoning
+Alice's `/etc/hosts` (emulating DNS cache poisoning, as the handout says).
+The one thing that changes between the two tasks is the certificate it
+presents:
 
-- **Without a trusted CA** — a site on plain HTTP, or Alice clicking
-  through a self-signed certificate: the attacker relays the connection
-  and reads logins and photos in clear text.
-- **With the lab CA** — Alice's Firefox trusts only certificates the lab
-  CA issued for that exact name, so the attacker's forged certificate is
-  rejected, the page refuses to load, and nothing leaks.
+- **Task 5 — the CA wins.** The attacker has only a **self-signed**
+  certificate for `social.lab`. Alice's Firefox trusts the lab CA, not the
+  attacker, so it shows a full-page certificate warning
+  (`SEC_ERROR_UNKNOWN_ISSUER`). The attack is stopped before any password
+  is sent — this is PKI defeating the MITM.
+- **Task 6 — the CA is compromised.** The attacker has **stolen the CA's
+  private key** and signs its own `social.lab` certificate with it. That
+  certificate chains to the root Alice already trusts, so there is **no
+  warning at all** — green padlock, genuine-looking page, credentials
+  harvested silently.
+
+The step-by-step demo, the scripts and the explanation of why each outcome
+happens are in [`attacker/README.md`](attacker/README.md).
+
+## Completing the assignment (Tasks 1–6)
+
+The full sequence from a fresh checkout to every task done. Run everything
+from the project folder on the Mac unless a step says otherwise. The `seed/`
+and `attacker/` scripts print each command with the machine it runs on and
+pause between steps, so the output goes straight into a report.
+
+**Setup (once).**
+
+```bash
+docker compose up -d --build      # build and start every instance
+```
+```bash
+seed/mac_hosts.sh                 # lab names -> this Mac (asks for your password)
+```
+
+**Task 1 — Become a CA.** Creates `openssl.cnf`'s `demoCA` layout, the
+self-signed root, and encrypts the CA key with a passphrase.
+
+```bash
+seed/task1_ca.sh
+```
+
+Then **unlock the CA**: open https://ca.lab:5001, log in (`admin` /
+`admin123`), and enter the passphrase so the portal can sign.
+
+**Task 2 — Certificate for SEEDPKILab2020.com.** Key + CSR on the web
+server, signed by the CA (asks for the CA passphrase, confirm twice).
+
+```bash
+seed/task2_server_cert.sh
+```
+
+**Task 3 — HTTPS with `openssl s_server`.** Registers the DNS name, builds
+`server.pem`, and starts the debug server on port 4433.
+
+```bash
+seed/task3_s_server.sh
+```
+
+While it runs, in **Chrome on the Mac** open https://seedpkilab2020.com:4433
+and screenshot the "issuer unknown" warning. Then trust the CA and reload:
+
+```bash
+seed/mac_trust_ca.sh              # add the lab root CA to the Mac keychain
+```
+
+Also open https://localhost:4433 (same server, but the certificate names
+only `seedpkilab2020.com`). Stop the server with Ctrl+C, then do step 4.1:
+
+```bash
+seed/task3_modify_byte.sh         # one changed byte -> SEC_ERROR_BAD_SIGNATURE
+```
+
+**Task 4 — Apache HTTPS site.** Enables `default-ssl.conf` and restarts
+Apache (asks for the server key passphrase).
+
+```bash
+seed/task4_apache.sh
+```
+
+Browse https://seedpkilab2020.com in Chrome and in Alice's Firefox
+(http://localhost:5003) for the padlock screenshot.
+
+**Task 5 — MITM defeated by the CA.** Serve the self-signed fake site and
+redirect Alice to it; her browser warns.
+
+```bash
+./attacker/mode.sh warn           # attacker serves its self-signed cert (default)
+```
+```bash
+./attacker/spoof.sh on            # poison Alice's /etc/hosts: social.lab -> attacker
+```
+
+In Alice's Firefox open https://social.lab and screenshot the certificate
+warning. Watch captures (if she clicks through) with:
+
+```bash
+docker compose logs -f attacker
+```
+
+**Task 6 — MITM with a compromised CA.** Steal the CA key, forge a trusted
+cert, serve it; now there is no warning.
+
+```bash
+./attacker/mode.sh trusted        # forge_cert.sh steals the CA key and signs social.lab
+```
+
+Reload https://social.lab in Alice's Firefox: **no warning**, green padlock,
+and the login is harvested silently. Screenshot the padlock and the captured
+credentials. Restore the lab when done:
+
+```bash
+./attacker/spoof.sh off           # stop redirecting Alice
+```
+```bash
+./attacker/mode.sh warn           # back to the self-signed cert
+```
 
 ## Resetting
 
