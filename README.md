@@ -336,101 +336,110 @@ happens are in [`attacker/README.md`](attacker/README.md).
 
 ## Completing the assignment (Tasks 1–6)
 
-The full sequence from a fresh checkout to every task done. Run everything
-from the project folder on the Mac unless a step says otherwise. The `seed/`
-and `attacker/` scripts print each command with the machine it runs on and
-pause between steps, so the output goes straight into a report.
+The lab is built up **one instance at a time, in order**, so the CA exists
+before the machines that must trust it. Reset to a clean slate first, then work
+through the tasks. From the laptop, map the names once with `seed/mac_hosts.sh`;
+inside Alice's and Adwaith's Firefox they already resolve.
 
-**Setup (once).**
+**Reset to a clean slate.**
 
 ```bash
-docker compose up -d --build      # build and start every instance
+docker compose down
 ```
 ```bash
-seed/mac_hosts.sh                 # lab names -> this Mac (asks for your password)
+rm -rf ca/demoCA ca/server ca/clients ca/enrollments ca/seed ca/ca_portal.db \
+       dns/server dns/dns_portal.db \
+       social/server social/social.db social/uploads social/seed social/apache/sites-enabled/* \
+       attacker/server attacker/server-forged attacker/stolen-ca attacker/live attacker/harvested.log
 ```
 
-**Task 1 — Become a CA.** Creates `openssl.cnf`'s `demoCA` layout, the
-self-signed root, and encrypts the CA key with a passphrase.
+**Task 1 — Become a CA.** Start the CA (this also starts `dns`, via `depends_on`):
 
 ```bash
-seed/task1_ca.sh
+docker compose up -d ca
 ```
 
-Then **unlock the CA**: open https://ca.lab:5001, log in (`admin` /
-`admin123`), and enter the passphrase so the portal can sign.
-
-**Task 2 — Certificate for SEEDPKILab2020.com.** Key + CSR on the web
-server, signed by the CA (asks for the CA passphrase, confirm twice).
+Build the CA — `seed/task1_ca.sh` does it in one run, or step by step: create the
+`demoCA` layout, then the self-signed root (`openssl req -new -x509 …`, choosing a
+passphrase). Give the portal its own certificate and restart it:
 
 ```bash
-seed/task2_server_cert.sh
+docker compose exec ca ./make_server_cert.sh
+docker compose restart ca
 ```
 
-**Task 3 — HTTPS with `openssl s_server`.** Registers the DNS name, builds
-`server.pem`, and starts the debug server on port 4433.
+Open `https://ca.lab:5001`, log in (`admin` / `admin123`), and enter the
+passphrase to **unlock** the CA so it can sign.
+
+**Task 2 — DNS certificate and records.** Give the DNS portal a CA-signed
+certificate (a real cross-instance flow; asks for the CA passphrase):
 
 ```bash
-seed/task3_s_server.sh
+./make_dns_cert.sh
 ```
 
-While it runs, in **Chrome on the Mac** open https://seedpkilab2020.com:4433
-and screenshot the "issuer unknown" warning. Then trust the CA and reload:
+Start the operator and register the names through the DNS portal (or with
+`docker compose exec dns ./add_record.sh <name> <ip> "<org>"`):
 
 ```bash
-seed/mac_trust_ca.sh              # add the lab root CA to the Mac keychain
+docker compose up -d adwaith      # operator Firefox at http://localhost:5004
 ```
 
-Also open https://localhost:4433 (same server, but the certificate names
-only `seedpkilab2020.com`). Stop the server with Ctrl+C, then do step 4.1:
+Register `ca.lab -> 172.28.0.10` and `social.lab -> 172.28.0.20`.
+
+**Task 3 — The web server (`social.lab`).** Start it and install the app:
 
 ```bash
-seed/task3_modify_byte.sh         # one changed byte -> SEC_ERROR_BAD_SIGNATURE
+docker compose up -d social
+docker compose exec social ./install.sh
 ```
 
-**Task 4 — Apache HTTPS site.** Enables `default-ssl.conf` and restarts
-Apache (asks for the server key passphrase).
+Then, on the operator, register `social.lab` (IP `172.28.0.20`) in the CA portal
+to get a one-time enrollment code.
+
+**Task 4 — Enrol the server, then open it as Alice.** On the web server, run the
+three enrollment commands from the portal message (they make the key locally and
+fetch a CA-signed certificate into `server/`), then restart:
 
 ```bash
-seed/task4_apache.sh
+docker compose exec social bash   # run the 3 enrollment commands, then exit
+docker compose restart social
 ```
 
-Browse https://seedpkilab2020.com in Chrome and in Alice's Firefox
-(http://localhost:5003) for the padlock screenshot.
-
-**Task 5 — MITM defeated by the CA.** Serve the self-signed fake site and
-redirect Alice to it; her browser warns.
+Start Alice and open the site — her Firefox trusts the lab CA, so the padlock is
+clean:
 
 ```bash
-./attacker/mode.sh warn           # attacker serves its self-signed cert (default)
-```
-```bash
-./attacker/spoof.sh on            # poison Alice's /etc/hosts: social.lab -> attacker
+docker compose up -d alice        # Alice's Firefox at http://localhost:5003 -> https://social.lab
 ```
 
-In Alice's Firefox open https://social.lab and screenshot the certificate
-warning. Watch captures (if she clicks through) with:
+**Task 5 — MITM defeated by PKI.** Start the attacker (a self-signed replica of
+`social.lab`) and poison Alice's DNS:
 
 ```bash
-docker compose logs -f attacker
+docker compose up -d attacker
+./attacker/mode.sh warn           # serve the self-signed cert (the default)
+./attacker/spoof.sh on            # Alice's /etc/hosts: social.lab -> attacker
 ```
 
-**Task 6 — MITM with a compromised CA.** Steal the CA key, forge a trusted
-cert, serve it; now there is no warning.
+In Alice's Firefox, `https://social.lab` now shows a certificate warning — the
+attacker can't forge a CA-signed certificate, so PKI stops the attack.
+
+**Task 6 — MITM with a compromised CA.** Forge a certificate with the stolen CA
+key and serve it:
 
 ```bash
-./attacker/mode.sh trusted        # forge_cert.sh steals the CA key and signs social.lab
+./attacker/mode.sh trusted        # forge_cert.sh signs social.lab with the stolen CA key (asks for the passphrase)
+./attacker/spoof.sh on
 ```
 
-Reload https://social.lab in Alice's Firefox: **no warning**, green padlock,
-and the login is harvested silently. Screenshot the padlock and the captured
-credentials. Restore the lab when done:
+Reload `https://social.lab` in Alice's Firefox: **no warning**, green padlock,
+and the login is harvested silently (`docker compose logs -f attacker`). Restore
+the lab when done:
 
 ```bash
-./attacker/spoof.sh off           # stop redirecting Alice
-```
-```bash
-./attacker/mode.sh warn           # back to the self-signed cert
+./attacker/spoof.sh off
+./attacker/mode.sh warn
 ```
 
 ## Resetting
