@@ -53,7 +53,7 @@ openssl req -new -key "$OUT/key.pem" -out "$OUT/social.csr" \
     -subj "/O=Social Lab/CN=$DOMAIN" 2>/dev/null
 chmod 600 "$OUT/key.pem"
 
-echo "[3/4] Signing it with the STOLEN CA key (a leaf cert, just like a real one) ..."
+echo "[3/4] Signing it with the STOLEN CA key (asks for the stolen key's passphrase) ..."
 # The extensions that make it look like a genuine website certificate:
 # CA:FALSE (a leaf, can't sign others), server key usages, and the real name
 # in the Subject Alternative Name (what browsers check).
@@ -72,7 +72,7 @@ EOF
 #   -extfile       apply the extensions above
 openssl x509 -req -in "$OUT/social.csr" \
     -CA "$STOLEN/cacert.pem" -CAkey "$STOLEN/cakey.pem" -CAcreateserial \
-    -days 365 -extfile "$OUT/ext.cnf" -out "$OUT/cert.pem" 2>/dev/null
+    -days 365 -extfile "$OUT/ext.cnf" -out "$OUT/cert.pem"
 
 echo "[4/4] Checking the forged cert chains to the lab Root CA ..."
 # Prove it: "openssl verify -CAfile <root>" returns OK only if the cert really
